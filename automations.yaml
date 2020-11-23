@@ -1,0 +1,73 @@
+- id: '1605575238274'
+  alias: Evening Lights On
+  description: Turn on the lights when the sun sets
+  trigger:
+  - platform: sun
+    event: sunset
+  condition:
+  - condition: or
+    conditions:
+    - condition: zone
+      entity_id: person.jen
+      zone: zone.home
+    - condition: zone
+      entity_id: person.jared
+      zone: zone.home
+  action:
+  - scene: scene.evening_default
+  mode: queued
+  max: 10
+- id: '1605653736019'
+  alias: Notify Jen on front porch motion
+  description: Motion detected on front porch
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.front_porch_cam_motion_detected
+    from: 'off'
+    to: 'on'
+  condition: []
+  action:
+  - service: notify.mobile_app_jen_s_phone
+    data:
+      title: Motion detected on front porch
+      message: check it out
+      data:
+        clickAction: /lovelace/default_view
+  mode: queued
+  max: 10
+- id: '1605756985220'
+  alias: Notify Jen to unlock door when arriving home
+  description: ''
+  trigger:
+  - platform: zone
+    entity_id: person.jen
+    zone: zone.home
+    event: enter
+  condition: []
+  action:
+  - service: notify.mobile_app_jen_s_phone
+    data:
+      title: Welcome Home
+      message: Would you like to unlock the side door?
+      data:
+        actions:
+        - action: unlock_side_door
+          title: Unlock
+  mode: queued
+  max: 10
+- id: '1605757550925'
+  alias: Unlock Side Door from Notification
+  description: ''
+  trigger:
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: unlock_side_door
+  condition: []
+  action:
+  - device_id: 09fd9fbc9837218c3bfb874bd466c216
+    domain: lock
+    entity_id: lock.schlage_allegion_be469_touchscreen_deadbolt_locked
+    type: unlock
+  mode: queued
+  max: 10

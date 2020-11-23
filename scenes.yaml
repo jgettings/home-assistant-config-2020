@@ -1,0 +1,22 @@
+- id: '1605575095180'
+  name: Evening Default
+  entities:
+    light.living_room_lamp_1:
+      min_mireds: 153
+      max_mireds: 500
+      brightness: 101.06060606060606
+      color_temp: 500
+      attribution: Data provided by Wyze
+      state: 'on'
+      available: 1
+      device model: WLPA19
+      ssid: !secret ssid
+      ip: !secret wyze_living_room_light_1_ip
+      rssi: '-60'
+      mac: 2CAA8E5AAFE4
+      friendly_name: Living Room Lamp 1
+      supported_features: 3
+    switch.kitchen:
+      friendly_name: Kitchen
+      state: 'on'
+  icon: mdi:sofa-outline

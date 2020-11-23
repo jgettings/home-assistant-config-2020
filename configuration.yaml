@@ -1,0 +1,42 @@
+
+# Configure a default setup of Home Assistant (frontend, api, etc)
+default_config:
+
+# Text to speech
+tts:
+  - platform: google_translate
+
+group: !include groups.yaml
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+
+wyzeapi:
+  username: !secret wyze_username
+  password: !secret wyze_password
+  lock: false
+  switch: false
+  
+  
+climate:
+  - platform: radiotherm
+    host:
+      - !secret thermostat_ip
+    
+amcrest:
+  - name: front-porch-cam
+    host: !secret amcrest_front_porch_ip
+    username: !secret amcrest_front_porch_username
+    password: !secret amcrest_front_porch_password
+    binary_sensors:
+      - audio_detected
+      - motion_detected
+      - online
+    sensors:
+      - sdcard
+
+
+google:
+  client_id: !secret google_client_id
+  client_secret: !secret google_client_secret
