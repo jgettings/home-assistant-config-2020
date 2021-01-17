@@ -35,6 +35,26 @@ amcrest:
       - online
     sensors:
       - sdcard
+  - name: back-yard-cam
+    host: !secret amcrest_back_yard_ip
+    username: !secret amcrest_back_yard_username
+    password: !secret amcrest_bacy_yard password
+    binary_sensors:
+      - audio_detected
+      - motion_detected
+      - online
+    sensors:
+      - sdcard
+  - name: driveway-cam
+    host: !secret amcrest_driveway_ip
+    username: !secret amcrest_driveway_username
+    password: !secret amcrest_driveway_password
+    binary_sensors:
+      - audio_detected
+      - motion_detected
+      - online
+    sensors:
+      - sdcard
 
 
 google:
