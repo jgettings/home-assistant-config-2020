@@ -38,7 +38,7 @@ amcrest:
   - name: back-yard-cam
     host: !secret amcrest_back_yard_ip
     username: !secret amcrest_back_yard_username
-    password: !secret amcrest_bacy_yard password
+    password: !secret amcrest_back_yard password
     binary_sensors:
       - audio_detected
       - motion_detected
