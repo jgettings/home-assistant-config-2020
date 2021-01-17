@@ -10,7 +10,10 @@ group: !include groups.yaml
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
+amcrest: !include cameras.yaml
 
+lovelace:
+  mode: yaml
 
 wyzeapi:
   username: !secret wyze_username
@@ -23,39 +26,6 @@ climate:
   - platform: radiotherm
     host:
       - !secret thermostat_ip
-    
-amcrest:
-  - name: front-porch-cam
-    host: !secret amcrest_front_porch_ip
-    username: !secret amcrest_front_porch_username
-    password: !secret amcrest_front_porch_password
-    binary_sensors:
-      - audio_detected
-      - motion_detected
-      - online
-    sensors:
-      - sdcard
-  - name: back-yard-cam
-    host: !secret amcrest_back_yard_ip
-    username: !secret amcrest_back_yard_username
-    password: !secret amcrest_back_yard_password
-    binary_sensors:
-      - audio_detected
-      - motion_detected
-      - online
-    sensors:
-      - sdcard
-  - name: driveway-cam
-    host: !secret amcrest_driveway_ip
-    username: !secret amcrest_driveway_username
-    password: !secret amcrest_driveway_password
-    binary_sensors:
-      - audio_detected
-      - motion_detected
-      - online
-    sensors:
-      - sdcard
-
 
 google:
   client_id: !secret google_client_id

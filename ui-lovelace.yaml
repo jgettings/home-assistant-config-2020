@@ -1,0 +1,308 @@
+title: Home
+views:
+  - path: default_view
+    title: Home
+    icon: 'mdi:home-heart'
+    badges:
+      - entity: binary_sensor.side_door_sensor
+      - entity: binary_sensor.side_door_motion
+      - entity: binary_sensor.updater
+      - entity: binary_sensor.rpi_power_status
+      - entity: binary_sensor.front_porch_cam_audio_detected
+      - entity: binary_sensor.front_porch_cam_motion_detected
+      - entity: binary_sensor.front_porch_cam_online
+      - entity: binary_sensor.back_yard_cam_audio_detected
+      - entity: binary_sensor.back_yard_cam_motion_detected
+      - entity: binary_sensor.back_yard_cam_online
+      - entity: binary_sensor.driveway_cam_audio_detected
+      - entity: binary_sensor.driveway_cam_motion_detected
+      - entity: binary_sensor.driveway_cam_online
+      - entity: person.jen
+      - entity: person.jared
+      - entity: sensor.front_porch_cam_sd_used
+      - entity: sensor.back_yard_cam_sd_used
+      - entity: sensor.driveway_cam_sd_used
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_battery_level
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_alarm_type
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_alarm_level
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_sourcenodeid
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_access_control
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_burglar
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_power_management
+      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_system
+      - entity: sun.sun
+    cards:
+      - type: thermostat
+        entity: climate.dining_room
+      - type: weather-forecast
+        entity: weather.home
+        secondary_info_attribute: wind_speed
+        show_forecast: true
+  - title: Security
+    path: security
+    icon: 'mdi:shield-home'
+    badges: []
+    cards:
+      - type: picture-elements
+        camera_image: camera.front_porch_cam
+        camera_view: live
+        elements:
+          - type: state-icon
+            entity: binary_sensor.front_porch_cam_motion_detected
+            style:
+              left: 25px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.front_porch_cam_audio_detected
+            style:
+              left: 50px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.front_porch_cam_online
+            style:
+              left: 75px
+              bottom: 0px
+      - type: picture-elements
+        entity: camera.driveway_cam
+        camera_image: camera.driveway_cam
+        camera_view: live
+        elements:
+          - type: icon
+            icon: 'mdi:arrow-up'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 25px
+              bottom: 50px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: up
+          - type: icon
+            icon: 'mdi:arrow-down'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 25px
+              bottom: 0px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: down
+          - type: icon
+            icon: 'mdi:arrow-left'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 50px
+              bottom: 25px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: left
+          - type: icon
+            icon: 'mdi:arrow-right'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 0px
+              bottom: 25px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: right
+          - type: icon
+            icon: 'mdi:arrow-top-left'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 50px
+              bottom: 50px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: left_up
+          - type: icon
+            icon: 'mdi:arrow-top-right'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 0px
+              bottom: 50px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: right_up
+          - type: icon
+            icon: 'mdi:arrow-bottom-left'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 50px
+              bottom: 0px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: left_down
+          - type: icon
+            icon: 'mdi:arrow-bottom-right'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              right: 0px
+              bottom: 0px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: right_down
+          - type: icon
+            icon: 'mdi:magnify'
+            style:
+              background: 'rgba(255, 255, 255, 0.25)'
+              bottom: 25px
+              right: 25px
+            tap_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: zoom_in
+            hold_action:
+              action: call-service
+              service: amcrest.ptz_control
+              service_data:
+                entity_id: camera.driveway_cam
+                movement: zoom_out
+          - type: state-icon
+            entity: binary_sensor.driveway_cam_motion_detected
+            style:
+              left: 25px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.driveway_cam_audio_detected
+            style:
+              left: 50px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.driveway_cam_online
+            style:
+              left: 75px
+              bottom: 0px
+      - type: picture-elements
+        camera_image: camera.back_yard_cam
+        camera_view: live
+        elements:
+          - type: state-icon
+            entity: binary_sensor.back_yard_cam_motion_detected
+            style:
+              left: 25px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.back_yard_cam_audio_detected
+            style:
+              left: 50px
+              bottom: 0px
+          - type: state-icon
+            entity: binary_sensor.back_yard_cam_online
+            style:
+              left: 75px
+              bottom: 0px
+      - type: entities
+        entities:
+          - lock.schlage_allegion_be469_touchscreen_deadbolt_locked
+        title: Lock
+      - type: entities
+        entities:
+          - zwave.schlage_allegion_be469_touchscreen_deadbolt
+          - zwave.zooz_zst10_s2_z_wave_plus_usb_stick
+        title: Z-Wave
+  - title: Living Room
+    path: living-room
+    icon: 'mdi:sofa'
+    badges: []
+    cards:
+      - type: media-control
+        entity: media_player.living_room_speaker
+      - type: media-control
+        entity: media_player.living_room_tv
+      - type: light
+        entity: light.living_room_lamp_1
+        name: Lights
+  - title: Bedroom
+    path: bedroom
+    icon: 'mdi:bed-queen'
+    badges: []
+    cards:
+      - type: media-control
+        entity: media_player.master_bedroom_tv
+      - type: entities
+        entities:
+          - entity: switch.master_bedroom_tv
+            name: TV
+        title: Master Bedroom
+  - title: Kitchen
+    path: kitchen
+    icon: 'mdi:fridge-outline'
+    badges: []
+    cards:
+      - type: calendar
+        entities:
+          - calendar.jaredmajewski_gmail_com
+          - calendar.jennifer_wystup_gmail_com
+          - calendar.team_awesome
+          - calendar.kids
+          - calendar.food
+          - calendar.family
+          - calendar.birthdays
+          - calendar.holidays_in_united_states
+        initial_view: listWeek
+      - type: button
+        tap_action:
+          action: toggle
+        entity: switch.kitchen
+        icon: 'hass:lightbulb'
+        name: Lights
+      - type: markdown
+        content: |-
+          * [Team Awesome](https://trello.com/b/ReHz432y/team-awesome)
+          * [Recipes](https://trello.com/b/uaRYD0Pz/recipes)
+        title: Trello
+  - title: Kids
+    path: kids
+    icon: 'mdi:account-group'
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - switch.attic_heater
+        title: Switch
+      - type: media-control
+        entity: media_player.office
+      - type: media-control
+        entity: media_player.office_tv
+      - type: calendar
+        entities:
+          - calendar.kids
+        initial_view: listWeek
+  - title: System
+    path: system
+    icon: 'mdi:cog'
+    badges: []
+    cards:
+      - type: entities
+        entities:
+          - sensor.hacs
+        title: Living Room
+      - type: entities
+        entities:
+          - entity: light.side_door_inside_light
+          - entity: light.office_light
+        title: Light
