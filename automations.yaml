@@ -4,6 +4,7 @@
   trigger:
   - platform: sun
     event: sunset
+    offset: -00:35:00
   condition:
   - condition: or
     conditions:
@@ -15,7 +16,7 @@
       zone: zone.home
   action:
   - scene: scene.evening_default
-  mode: queued
+  mode: single
   max: 10
 - id: '1605653736019'
   alias: Notify Jen on front porch motion
