@@ -56,52 +56,6 @@
           title: Unlock
   mode: queued
   max: 10
-- id: '1605757550925'
-  alias: Unlock Side Door from Notification
-  description: ''
-  trigger:
-  - platform: event
-    event_type: mobile_app_notification_action
-    event_data:
-      action: unlock_side_door
-  condition: []
-  action:
-  - device_id: 09fd9fbc9837218c3bfb874bd466c216
-    domain: lock
-    entity_id: lock.schlage_allegion_be469_touchscreen_deadbolt_locked
-    type: unlock
-  mode: queued
-  max: 10
-- id: '1610920141323'
-  alias: Side Door Light on Motion
-  description: ''
-  trigger:
-  - platform: state
-    attribute: state
-    to: 'on'
-    entity_id: binary_sensor.side_door_motion
-    from: 'off'
-  condition: []
-  action:
-  - service: light.turn_on
-    data: {}
-    entity_id: light.side_door_inside_light
-  mode: single
-- id: '1610920273201'
-  alias: Side Door Light When Clear
-  description: Turn off light after no motion for 5 minutes
-  trigger:
-  - platform: state
-    entity_id: binary_sensor.side_door_motion
-    attribute: state
-    for: 00:05:00
-    to: 'false'
-  condition: []
-  action:
-  - service: light.turn_off
-    data: {}
-    entity_id: light.side_door_inside_light
-  mode: single
 - id: '1612122170563'
   alias: Trigger Bedtime when Jen's Phone gets plugged in
   description: lights off, etc
@@ -114,32 +68,6 @@
     after: '21:00'
   action:
   - scene: scene.bedtime
-  mode: single
-- id: '1612470241665'
-  alias: Turn on office light when Jen is in a meeting
-  description: ''
-  trigger:
-  - platform: state
-    entity_id: binary_sensor.jennifers_macbook_pro_camera_in_use
-    to: 'on'
-  condition: []
-  action:
-  - service: light.turn_on
-    data: {}
-    entity_id: light.office_light
-  mode: single
-- id: '1612470310204'
-  alias: Turn off office light at the end of a meeting
-  description: ''
-  trigger:
-  - platform: state
-    entity_id: binary_sensor.jennifers_macbook_pro_camera_in_use
-    to: 'off'
-  condition: []
-  action:
-  - service: light.turn_off
-    data: {}
-    entity_id: light.office_light
   mode: single
 - id: '1612537386339'
   alias: Trigger Morning Scene at 8am

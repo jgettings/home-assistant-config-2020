@@ -34,7 +34,7 @@
       device model: WLPA19
       ssid: !secret ssid
       ip: !secret wyze_side_door_light_ip
-      rssi: '-70'
+      rssi: '-65'
       mac: 2CAA8E5BFB64
       friendly_name: Side Door Inside Light
       supported_features: 3
@@ -51,7 +51,7 @@
       device model: WLPA19
       ssid: !secret ssid
       ip: !secret wyze_living_room_light_1_ip
-      rssi: '-61'
+      rssi: '-68'
       mac: 2CAA8E5AAFE4
       friendly_name: Living Room Lamp 1
       supported_features: 3
@@ -64,10 +64,53 @@
       device model: WLPA19
       ssid: !secret ssid
       ip: !secret wyze_office_light
-      rssi: '-72'
+      rssi: '-60'
       mac: 2CAA8E5E9C7C
       friendly_name: office light
       supported_features: 3
+    zwave.side_door_lock:
+      node_id: 5
+      node_name: Schlage (Allegion) BE469 Touchscreen Deadbolt
+      manufacturer_name: Schlage (Allegion)
+      product_name: BE469 Touchscreen Deadbolt
+      query_stage: Complete
+      is_awake: true
+      is_ready: true
+      is_failed: false
+      is_info_received: true
+      max_baud_rate: 40000
+      is_zwave_plus: false
+      capabilities:
+      - beaming
+      - routing
+      - frequent
+      neighbors:
+      - 1
+      sentCnt: 17
+      sentFailed: 0
+      retries: 0
+      receivedCnt: 13
+      receivedDups: 0
+      receivedUnsolicited: 0
+      sentTS: '2021-03-13 12:23:39:426 '
+      receivedTS: '2021-03-13 12:23:40:937 '
+      lastRequestRTT: 1451
+      averageRequestRTT: 1421
+      lastResponseRTT: 1510
+      averageResponseRTT: 1726
+      battery_level: 100
+      application_version: '128.22'
+      friendly_name: Side Door Lock
+      state: ready
+    lock.side_door_lock_locked:
+      node_id: 5
+      value_index: 0
+      value_instance: 1
+      value_id: '72057594127613952'
+      notification: RF Lock
+      lock_status: Locked by RF
+      friendly_name: Side Door Lock Locked
+      state: locked
   icon: mdi:bed
 - id: '1610923539819'
   name: Kids
