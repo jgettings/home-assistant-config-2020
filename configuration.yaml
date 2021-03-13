@@ -12,8 +12,8 @@ script: !include scripts.yaml
 scene: !include scenes.yaml
 amcrest: !include cameras.yaml
 
-lovelace:
-  mode: yaml
+# lovelace:
+#   mode: yaml
 
 wyzeapi:
   username: !secret wyze_username
@@ -30,3 +30,16 @@ climate:
 google:
   client_id: !secret google_client_id
   client_secret: !secret google_client_secret
+
+light:
+  - platform: switch
+    name: Kitchen Light
+    entity_id: switch.kitchen
+  - platform: group
+    name: All Lights
+    entities:
+      - light.side_door_inside_light
+      - light.office_light
+      - light.living_room_lamp_1
+      - light.kitchen_light
+  

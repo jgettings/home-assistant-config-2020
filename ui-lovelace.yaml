@@ -4,33 +4,8 @@ views:
     title: Home
     icon: 'mdi:home-heart'
     badges:
-      - entity: binary_sensor.side_door_sensor
-      - entity: binary_sensor.side_door_motion
-      - entity: binary_sensor.updater
-      - entity: binary_sensor.rpi_power_status
-      - entity: binary_sensor.front_porch_cam_audio_detected
-      - entity: binary_sensor.front_porch_cam_motion_detected
-      - entity: binary_sensor.front_porch_cam_online
-      - entity: binary_sensor.back_yard_cam_audio_detected
-      - entity: binary_sensor.back_yard_cam_motion_detected
-      - entity: binary_sensor.back_yard_cam_online
-      - entity: binary_sensor.driveway_cam_audio_detected
-      - entity: binary_sensor.driveway_cam_motion_detected
-      - entity: binary_sensor.driveway_cam_online
       - entity: person.jen
       - entity: person.jared
-      - entity: sensor.front_porch_cam_sd_used
-      - entity: sensor.back_yard_cam_sd_used
-      - entity: sensor.driveway_cam_sd_used
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_battery_level
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_alarm_type
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_alarm_level
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_sourcenodeid
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_access_control
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_burglar
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_power_management
-      - entity: sensor.schlage_allegion_be469_touchscreen_deadbolt_system
-      - entity: sun.sun
     cards:
       - type: thermostat
         entity: climate.dining_room

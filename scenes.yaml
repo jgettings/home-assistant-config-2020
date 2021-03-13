@@ -20,3 +20,126 @@
       friendly_name: Kitchen
       state: 'on'
   icon: mdi:sofa-outline
+- id: '1610923251823'
+  name: Bedtime
+  entities:
+    light.side_door_inside_light:
+      min_mireds: 153
+      max_mireds: 500
+      brightness: 49.74747474747475
+      color_temp: 500
+      attribution: Data provided by Wyze
+      state: 'on'
+      available: 1
+      device model: WLPA19
+      ssid: !secret ssid
+      ip: !secret wyze_side_door_light_ip
+      rssi: '-70'
+      mac: 2CAA8E5BFB64
+      friendly_name: Side Door Inside Light
+      supported_features: 3
+    light.kitchen_light:
+      friendly_name: Kitchen Light
+      supported_features: 0
+      state: 'off'
+    light.living_room_lamp_1:
+      min_mireds: 153
+      max_mireds: 500
+      attribution: Data provided by Wyze
+      state: 'off'
+      available: 1
+      device model: WLPA19
+      ssid: !secret ssid
+      ip: !secret wyze_living_room_light_1_ip
+      rssi: '-61'
+      mac: 2CAA8E5AAFE4
+      friendly_name: Living Room Lamp 1
+      supported_features: 3
+    light.office_light:
+      min_mireds: 153
+      max_mireds: 500
+      attribution: Data provided by Wyze
+      state: 'off'
+      available: 1
+      device model: WLPA19
+      ssid: !secret ssid
+      ip: !secret wyze_office_light
+      rssi: '-72'
+      mac: 2CAA8E5E9C7C
+      friendly_name: office light
+      supported_features: 3
+  icon: mdi:bed
+- id: '1610923539819'
+  name: Kids
+  entities:
+    switch.attic_heater:
+      restored: true
+      supported_features: 0
+      friendly_name: Attic Heater
+      state: unavailable
+    climate.dining_room:
+      hvac_modes:
+      - auto
+      - cool
+      - heat
+      - 'off'
+      min_temp: 44.5
+      max_temp: 95
+      fan_modes:
+      - 'on'
+      - auto
+      preset_modes:
+      - home
+      - alternate
+      - away
+      - holiday
+      current_temperature: 69
+      temperature: 69
+      fan_mode: auto
+      hvac_action: idle
+      preset_mode:
+      fan_action: 'off'
+      friendly_name: Dining Room
+      supported_features: 25
+      state: heat
+  icon: mdi:account-group
+- id: '1610923772837'
+  name: Leaving Home
+  entities:
+    light.all_lights:
+      min_mireds: 153
+      max_mireds: 500
+      brightness: 103.62626262626263
+      color_temp: 500
+      entity_id:
+      - light.side_door_inside_light
+      - light.office_light
+      - light.living_room_lamp_1
+      - light.kitchen_light
+      friendly_name: All Lights
+      icon: mdi:lightbulb-group
+      supported_features: 3
+      state: 'on'
+  icon: mdi:exit-run
+- id: '1612121896472'
+  name: Morning
+  entities:
+    light.kitchen_light:
+      friendly_name: Kitchen Light
+      supported_features: 0
+      state: 'on'
+    light.side_door_inside_light:
+      min_mireds: 153
+      max_mireds: 500
+      brightness: 255
+      attribution: Data provided by Wyze
+      state: 'on'
+      available: 1
+      device model: WLPA19
+      ssid: !secret ssid
+      ip: !secret wyze_side_door_light_ip
+      rssi: '-70'
+      mac: 2CAA8E5BFB64
+      friendly_name: Side Door Inside Light
+      supported_features: 3
+  icon: mdi:coffee
