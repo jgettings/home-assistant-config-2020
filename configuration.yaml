@@ -45,3 +45,5 @@ light:
   
 zwave:
   network_key: !secret zwave_key
+homeassistant:
+  packages: !include_dir_named packages
