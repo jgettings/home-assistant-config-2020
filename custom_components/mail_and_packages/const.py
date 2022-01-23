@@ -1,14 +1,18 @@
+""" Constants for Mail and Packages."""
 DOMAIN = "mail_and_packages"
 DOMAIN_DATA = "{}_data".format(DOMAIN)
-VERSION = "0.3.1"
+VERSION = "0.3.3-2"
 ISSUE_URL = "http://github.com/moralmunky/Home-Assistant-Mail-And-Packages"
 PLATFORM = "sensor"
-PLATFORMS = ["sensor"]
+PLATFORMS = ["camera", "sensor"]
 DATA = "data"
 COORDINATOR = "coordinator_mail"
 OVERLAY = ["overlay.png", "vignette.png", "white.png"]
+SERVICE_UPDATE_FILE_PATH = "update_file_path"
+CAMERA = "cameras"
 
 # Attributes
+ATTR_AMAZON_IMAGE = "amazon_image"
 ATTR_COUNT = "count"
 ATTR_CODE = "code"
 ATTR_ORDER = "order"
@@ -26,6 +30,9 @@ ATTR_USPS_MAIL = "usps_mail"
 
 # Configuration Properties
 CONF_ALLOW_EXTERNAL = "allow_external"
+CONF_CAMERA_NAME = "camera_name"
+CONF_CUSTOM_IMG = "custom_img"
+CONF_CUSTOM_IMG_FILE = "custom_img_file"
 CONF_FOLDER = "folder"
 CONF_PATH = "image_path"
 CONF_DURATION = "gif_duration"
@@ -36,10 +43,11 @@ CONF_GENERATE_MP4 = "generate_mp4"
 CONF_AMAZON_FWDS = "amazon_fwds"
 
 # Defaults
+DEFAULT_CAMERA_NAME = "Mail USPS Camera"
 DEFAULT_NAME = "Mail And Packages"
 DEFAULT_PORT = "993"
 DEFAULT_FOLDER = '"INBOX"'
-DEFAULT_PATH = "/images/mail_and_packages/"
+DEFAULT_PATH = "custom_components/mail_and_packages/images/"
 DEFAULT_IMAGE_SECURITY = True
 DEFAULT_IMAP_TIMEOUT = 30
 DEFAULT_GIF_DURATION = 5
@@ -47,12 +55,14 @@ DEFAULT_SCAN_INTERVAL = 5
 DEFAULT_GIF_FILE_NAME = "mail_today.gif"
 DEFAULT_AMAZON_FWDS = '""'
 DEFAULT_ALLOW_EXTERNAL = False
+DEFAULT_CUSTOM_IMG = False
+DEFAULT_CUSTOM_IMG_FILE = "custom_components/mail_and_packages/images/mail_none.gif"
 
 # Amazon
-Amazon_Domains = "amazon.com,amazon.ca,amazon.co.uk,amazon.in,amazon.de,amazon.it"
-AMAZON_Delivered_Subject = ["Delivered: Your", "Consegna effettuata:"]
+AMAZON_DOMAINS = "amazon.com,amazon.ca,amazon.co.uk,amazon.in,amazon.de,amazon.it"
+AMAZON_DELIVERED_SUBJECT = ["Delivered: Your", "Consegna effettuata:"]
 AMAZON_SHIPMENT_TRACKING = ["shipment-tracking", "conferma-spedizione"]
-AMAZON_Email = "order-update@"
+AMAZON_EMAIL = "order-update@"
 AMAZON_PACKAGES = "amazon_packages"
 AMAZON_ORDER = "amazon_order"
 AMAZON_DELIVERED = "amazon_delivered"
@@ -63,7 +73,13 @@ AMAZON_HUB = "amazon_hub"
 AMAZON_HUB_CODE = "amazon_hub_code"
 AMAZON_HUB_EMAIL = "thehub@amazon.com"
 AMAZON_HUB_SUBJECT = "(You have a package to pick up)(.*)- (\\d{6})"
-AMAZON_TIME_PATTERN = "will arrive:,estimated delivery date is:,guaranteed delivery date is:,Arriving:,Arriver:"
+AMAZON_TIME_PATTERN = "will arrive:,estimated delivery date is:,guaranteed delivery date is:,Arriving:,Arriverà:"
+AMAZON_EXCEPTION_SUBJECT = "Delivery update:"
+AMAZON_EXCEPTION_BODY = "running late"
+AMAZON_EXCEPTION = "amazon_exception"
+AMAZON_EXCEPTION_ORDER = "amazon_exception_order"
+AMAZON_PATTERN = "[0-9]{3}-[0-9]{7}-[0-9]{7}"
+AMAZON_LANGS = ["it_IT", "it_IT.UTF-8", ""]
 
 # Sensor Data
 SENSOR_DATA = {
@@ -73,14 +89,19 @@ SENSOR_DATA = {
     },
     "usps_delivering": {
         "email": ["auto-reply@usps.com"],
-        "subject": ["Expected Delivery on"],
+        "subject": ["Expected Delivery on", "Out for Delivery"],
         "body": ["Your item is out for delivery"],
     },
+    "usps_exception": {
+        "email": ["auto-reply@usps.com"],
+        "subject": ["Delivery Exception"],
+    },
     "usps_packages": {},
-    "usps_tracking": {"pattern": ["9[234]\\d{15,22}"]},
+    "usps_tracking": {"pattern": ["9[2345]\\d{15,26}"]},
     "usps_mail": {
         "email": [
             "USPSInformedDelivery@usps.gov",
+            "USPSInformeddelivery@email.informeddelivery.usps.com",
             "USPSInformeddelivery@informeddelivery.usps.com",
         ],
         "subject": ["Your Daily Digest"],
@@ -91,7 +112,6 @@ SENSOR_DATA = {
             "Your UPS Package was delivered",
             "Your UPS Packages were delivered",
         ],
-        "body": ["Tracking Number"],
     },
     "ups_delivering": {
         "email": ["mcinfo@ups.com"],
@@ -99,14 +119,13 @@ SENSOR_DATA = {
             "UPS Update: Package Scheduled for Delivery Today",
             "UPS Update: Follow Your Delivery on a Live Map",
         ],
-        "body": ["Tracking Number"],
+    },
+    "ups_exception": {
+        "email": ["mcinfo@ups.com"],
+        "subject": ["UPS Update: New Scheduled Delivery Date"],
     },
     "ups_packages": {},
-    "ups_tracking": {
-        "pattern": [
-            "(1Z ?[0-9A-Z]{3} ?[0-9A-Z]{3} ?[0-9A-Z]{2} ?[0-9A-Z]{4} ?[0-9A-Z]{3} ?[0-9A-Z]|[\\dT]\\d\\d\\d ?\\d\\d\\d\\d ?\\d\\d\\d)$"
-        ]
-    },
+    "ups_tracking": {"pattern": ["1Z?[0-9A-Z]{16}"]},
     "fedex_delivered": {
         "email": ["TrackingUpdates@fedex.com", "fedexcanada@fedex.com"],
         "subject": [
@@ -118,10 +137,11 @@ SENSOR_DATA = {
         "subject": [
             "Delivery scheduled for today",
             "Your package is scheduled for delivery today",
+            "Your package is now out for delivery",
         ],
     },
     "fedex_packages": {},
-    "fedex_tracking": {"pattern": ["\\d{12,14}"]},
+    "fedex_tracking": {"pattern": ["\\d{12,20}"]},
     "capost_delivered": {
         "email": ["donotreply@canadapost.postescanada.ca"],
         "subject": [
@@ -168,6 +188,16 @@ SENSOR_DATA = {
     },
     "royal_packages": {},
     "royal_tracking": {"pattern": ["[A-Za-z]{2}[0-9]{9}GB"]},
+    "auspost_delivered": {
+        "email": ["noreply@notifications.auspost.com.au"],
+        "subject": ["Your shipment has been delivered"],
+    },
+    "auspost_delivering": {
+        "email": ["noreply@notifications.auspost.com.au"],
+        "subject": ["Your delivery is coming today"],
+    },
+    "auspost_packages": {},
+    "auspost_tracking": {"pattern": ["\\d{7,10,12}|[A-Za-z]{2}[0-9]{9}AU "]},
 }
 
 # Sensor definitions
@@ -181,6 +211,7 @@ SENSOR_TYPES = {
         "mdi:package-variant-closed",
     ],
     "usps_delivering": ["Mail USPS Delivering", "package(s)", "mdi:truck-delivery"],
+    "usps_exception": ["Mail USPS Exception", "package(s)", "mdi:archive-alert"],
     "usps_packages": [
         "Mail USPS Packages",
         "package(s)",
@@ -192,6 +223,7 @@ SENSOR_TYPES = {
         "mdi:package-variant-closed",
     ],
     "ups_delivering": ["Mail UPS Delivering", "package(s)", "mdi:truck-delivery"],
+    "ups_exception": ["Mail UPS Exception", "package(s)", "mdi:archive-alert"],
     "ups_packages": ["Mail UPS Packages", "package(s)", "mdi:package-variant-closed"],
     "fedex_delivered": [
         "Mail FedEx Delivered",
@@ -204,13 +236,14 @@ SENSOR_TYPES = {
         "package(s)",
         "mdi:package-variant-closed",
     ],
-    "amazon_packages": ["Mail Amazon Packages", "package(s)", "mdi:amazon"],
+    "amazon_packages": ["Mail Amazon Packages", "package(s)", "mdi:package"],
     "amazon_delivered": [
         "Mail Amazon Packages Delivered",
         "package(s)",
         "mdi:package-variant-closed",
     ],
-    "amazon_hub": ["Mail Amazon Hub Packages", "package(s)", "mdi:amazon"],
+    "amazon_exception": ["Mail Amazon Exception", "package(s)", "mdi:archive-alert"],
+    "amazon_hub": ["Mail Amazon Hub Packages", "package(s)", "mdi:package"],
     "capost_delivered": [
         "Mail Canada Post Delivered",
         "package(s)",
@@ -259,6 +292,21 @@ SENSOR_TYPES = {
         "package(s)",
         "mdi:package-variant-closed",
     ],
+    "auspost_delivered": [
+        "Mail AusPost Delivered",
+        "package(s)",
+        "mdi:package-variant",
+    ],
+    "auspost_delivering": [
+        "Mail AusPost Delivering",
+        "package(s)",
+        "mdi:truck-delivery",
+    ],
+    "auspost_packages": [
+        "Mail AusPost Packages",
+        "package(s)",
+        "mdi:package-variant-closed",
+    ],  
     ###
     # !!! Insert new sensors above these two !!!
     ###
@@ -288,10 +336,16 @@ IMAGE_SENSORS = {
     ],
 }
 
+# Name
+CAMERA_DATA = {
+    "usps_camera": ["Mail USPS Camera"],
+    "amazon_camera": ["Mail Amazon Delivery Camera"],
+}
+
 # Sensor Index
 SENSOR_NAME = 0
 SENSOR_UNIT = 1
 SENSOR_ICON = 2
 
 # For sensors with delivering and delivered statuses
-SHIPPERS = ["capost", "dhl", "fedex", "ups", "usps", "hermes", "royal"]
+SHIPPERS = ["capost", "dhl", "fedex", "ups", "usps", "hermes", "royal", "auspost"]

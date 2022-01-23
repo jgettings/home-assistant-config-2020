@@ -1,206 +1,218 @@
-#!/usr/bin/python3
+"""
+This module describes the connection between Home Assistant and Wyze for the Sensors
+"""
 
-"""Platform for binary_sensor integration."""
 import logging
-from datetime import timedelta
+import time
+from typing import Callable, List, Any
 
-import homeassistant.util.dt as dt_util
-# Import the device class from the component that you want to support
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     DEVICE_CLASS_MOTION,
     DEVICE_CLASS_DOOR
 )
-from homeassistant.const import ATTR_ATTRIBUTION, ATTR_BATTERY_LEVEL
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import ATTR_ATTRIBUTION
+from homeassistant.core import HomeAssistant
+from wyzeapy import Wyzeapy, CameraService, SensorService
+from wyzeapy.services.camera_service import Camera
+from wyzeapy.services.sensor_service import Sensor
+from wyzeapy.types import DeviceTypes
+from .token_manager import token_exception_handler
 
-from . import DOMAIN
-from .wyzeapi.client import WyzeApiClient
-from .wyzeapi.devices import MotionSensor, ContactSensor
-
-# Add to support quicker update time. Is this to Fast?
-
-SCAN_INTERVAL = timedelta(seconds=5)
-
-ATTRIBUTION = "Data provided by Wyze"
-ATTR_STATE = "state"
-ATTR_AVAILABLE = "available"
-ATTR_MAC = "mac"
-ATTR_RSSI = "rssi"
-ATTR_DEVICE_MODEL = "device model"
-ATTR_OPEN_SINCE = "Open since"
-ATTR_LAST_ACTION = "last_action"
-ATTR_NO_MOTION_SINCE = "No motion since"
-
-NO_CLOSE = "no_close"
-MOTION = "motion"
-NO_MOTION = "no_motion"
+from .const import DOMAIN, CONF_CLIENT
 
 _LOGGER = logging.getLogger(__name__)
+ATTRIBUTION = "Data provided by Wyze"
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the Wyze binary_sensor platform."""
-    _LOGGER.debug("""Creating new WyzeApi binary_sensor component""")
+@token_exception_handler
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry,
+                            async_add_entities: Callable[[List[Any], bool], None]):
+    """
+    This function sets up the config entry for use in Home Assistant
 
-    _ = config
-    _ = discovery_info
+    :param hass: Home Assistant instance
+    :param config_entry: The current config_entry
+    :param async_add_entities: This function adds entities to the config_entry
+    :return:
+    """
 
-    wyzeapi_client: WyzeApiClient = hass.data[DOMAIN]["wyzeapi_account"]
+    _LOGGER.debug("""Creating new WyzeApi binary sensor component""")
+    client: Wyzeapy = hass.data[DOMAIN][config_entry.entry_id][CONF_CLIENT]
 
-    # Add devices
-    contact_sensors = await wyzeapi_client.list_contact_sensors()
-    async_add_entities([HAWyzeContactSensor(wyzeapi_client, sensor) for sensor in contact_sensors], True)
-    motion_sensors = await wyzeapi_client.list_motion_sensors()
-    async_add_entities([HAWyzeMotionSensor(wyzeapi_client, motion_sensor) for motion_sensor in motion_sensors], True)
+    sensor_service = await client.sensor_service
+    camera_service = await client.camera_service
+
+    cameras = [WyzeCameraMotion(camera_service, camera) for camera in await camera_service.get_cameras()]
+    sensors = [WyzeSensor(sensor_service, sensor) for sensor in await sensor_service.get_sensors()]
+
+    async_add_entities(cameras, True)
+    async_add_entities(sensors, True)
 
 
-class HAWyzeContactSensor(BinarySensorEntity):
-    """Representation of a Wyze binary_sensor."""
-    __sensor: ContactSensor
-    __client: WyzeApiClient
+class WyzeSensor(BinarySensorEntity):
+    """
+    A representation of the WyzeSensor for use in Home Assistant
+    """
 
-    def __init__(self, client: WyzeApiClient, sensor: ContactSensor):
-        """Initialize a Wyze binary_sensor."""
-        self.__sensor = sensor
-        self.__client = client
+    def __init__(self, sensor_service: SensorService, sensor: Sensor):
+        """Initializes the class"""
+        self._sensor_service = sensor_service
+        self._sensor = sensor
+        self._last_event = int(str(int(time.time())) + "000")
+
+    async def async_added_to_hass(self) -> None:
+        """Registers for updates when the entity is added to Home Assistant"""
+        await self._sensor_service.register_for_updates(self._sensor, self.process_update)
+
+    async def async_will_remove_from_hass(self) -> None:
+        await self._sensor_service.deregister_for_updates(self._sensor)
+
+    def process_update(self, sensor: Sensor):
+        """
+        This function processes an update for the Wyze Sensor
+
+        :param sensor: The sensor with the updated values
+        """
+        self._sensor = sensor
+        self.schedule_update_ha_state()
 
     @property
-    def name(self) -> str:
-        """Return the display name of this sensor."""
-        return self.__sensor.nick_name
-
-    @property
-    def available(self) -> bool:
-        """Return the connection status of this sensor"""
-        return self.__sensor.available == 1
-
-    @property
-    def is_on(self) -> bool:
-        """Return true if sensor is on."""
-        return self.__sensor.open_close_state == 1
-
-    @property
-    def unique_id(self) -> str:
-        return self.__sensor.mac
-
-    @property
-    def device_class(self) -> str:
-        """Return device class."""
-        return DEVICE_CLASS_DOOR
-
-    @property
-    def device_state_attributes(self):
-        """Return device attributes of the entity."""
+    def device_info(self):
         return {
-            ATTR_ATTRIBUTION: ATTRIBUTION,
-            ATTR_STATE: self.is_on,
-            ATTR_AVAILABLE: self.available,
-            ATTR_MAC: self.unique_id,
-            ATTR_BATTERY_LEVEL: self.__sensor.voltage,
-            ATTR_RSSI: self.__sensor.rssi,
-            ATTR_DEVICE_MODEL: self.__sensor.product_model,
-            ATTR_LAST_ACTION: self.epoch_to_utc()
+            "identifiers": {
+                (DOMAIN, self._sensor.mac)
+            },
+            "name": self.name,
+            "manufacturer": "WyzeLabs",
+            "model": self._sensor.product_model
         }
 
     @property
-    def should_poll(self):
-        """We always want to poll for sensors."""
-        return True
-
-    def epoch_to_utc(self):
-        # The code below is slicing, works but not on integers.
-        # If you want to use it you can convert the number to str for slicing then convert it back to int.
-        # It is not the best practice but it can be done as the following:
-        last_update_time_1 = str(self.__sensor.open_close_state_ts)
-        last_update_time_2 = last_update_time_1[:-3]
-        last_update_time_3 = int(last_update_time_2)
-        return dt_util.utc_from_timestamp(float(last_update_time_3))
-
-    @staticmethod
-    def time_since_last_update():
-        # Feature use
-        return True
-
-    @staticmethod
-    def no_motion_since():
-        # Feature use
-        return True
-
-    @staticmethod
-    def open_since():
-        # Feature use
-        return True
-
-    async def async_update(self):
-        """Fetch new state data for this sensor.
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        _LOGGER.debug("""Binary Sensors doing a update.""")
-        self.__sensor = await self.__client.update(self.__sensor)
-
-
-class HAWyzeMotionSensor(BinarySensorEntity):
-    """Representation of a Wyze binary_sensor."""
-    __sensor: MotionSensor
-    __client: WyzeApiClient
-
-    def __init__(self, client: WyzeApiClient, motion_sensor: MotionSensor):
-        """Initialize a Wyze binary_sensor."""
-        self.__sensor = motion_sensor
-        self.__client = client
-
-    @property
-    def name(self) -> str:
-        """Return the display name of this sensor."""
-        return self.__sensor.nick_name
-
-    @property
     def available(self) -> bool:
-        """Return the connection status of this sensor"""
-        return self.__sensor.available == 1
+        return True
 
     @property
-    def is_on(self) -> bool:
-        """Return true if sensor is on."""
-        return self.__sensor.motion_state == 1
+    def name(self):
+        """Return the display name of this switch."""
+        return self._sensor.nickname
 
     @property
-    def unique_id(self) -> str:
-        return self.__sensor.mac
+    def should_poll(self) -> bool:
+        return False
+
+    @property
+    def is_on(self):
+        """Return true if sensor detects motion"""
+        return self._sensor.detected
+
+    @property
+    def unique_id(self):
+        return "{}-motion".format(self._sensor.mac)
+
+    @property
+    def extra_state_attributes(self):
+        """Return device attributes of the entity."""
+        return {
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+            "state": self.is_on,
+            "available": self.available,
+            "device model": self._sensor.product_model,
+            "mac": self.unique_id
+        }
 
     @property
     def device_class(self):
-        """Return device class."""
-        return DEVICE_CLASS_MOTION
+        # pylint: disable=R1705
+        if self._sensor.type is DeviceTypes.MOTION_SENSOR:
+            return DEVICE_CLASS_MOTION
+        elif self._sensor.type is DeviceTypes.CONTACT_SENSOR:
+            return DEVICE_CLASS_DOOR
+        else:
+            raise RuntimeError(
+                f"The device type {self._sensor.type} is not supported by this class")
+
+
+class WyzeCameraMotion(BinarySensorEntity):
+    """
+    A representation of the Wyze Camera for use as a binary sensor in Home Assistant
+    """
+    _is_on = False
+    _last_event = time.time() * 1000
+
+    def __init__(self, camera_service: CameraService, camera: Camera):
+        self._camera_service = camera_service
+        self._camera = camera
 
     @property
-    def device_state_attributes(self):
-        """Return device attributes of the entity."""
+    def device_info(self):
         return {
-            ATTR_ATTRIBUTION: ATTRIBUTION,
-            ATTR_STATE: self.is_on,
-            ATTR_AVAILABLE: self.available,
-            ATTR_MAC: self.unique_id,
-            ATTR_BATTERY_LEVEL: self.__sensor.voltage,
-            ATTR_RSSI: self.__sensor.rssi,
-            ATTR_DEVICE_MODEL: self.__sensor.product_model,
-            ATTR_LAST_ACTION: self.epoch_to_utc()
+            "identifiers": {
+                (DOMAIN, self._camera.mac)
+            },
+            "name": self.name,
+            "manufacturer": "WyzeLabs",
+            "model": self._camera.product_model
         }
 
     @property
-    def should_poll(self):
-        """We always want to poll for motion_sensor."""
-        return True
+    def available(self) -> bool:
+        return self._camera.available
 
-    def epoch_to_utc(self):
-        last_update_time_1 = str(self.__sensor.motion_state_ts)
-        last_update_time_2 = last_update_time_1[:-3]
-        last_update_time_3 = int(last_update_time_2)
-        return dt_util.utc_from_timestamp(float(last_update_time_3))
+    @property
+    def name(self):
+        """Return the display name of this switch."""
+        return self._camera.nickname
 
-    async def async_update(self):
-        """Fetch new state data for this sensor.
-        This is the only method that should fetch new data for Home Assistant.
+    @property
+    def should_poll(self) -> bool:
+        return False
+
+    @property
+    def is_on(self):
+        """Return true if the binary sensor is on"""
+        return self._is_on
+
+    @property
+    def unique_id(self):
+        return "{}-motion".format(self._camera.mac)
+
+    @property
+    def extra_state_attributes(self):
+        """Return device attributes of the entity."""
+        return {
+            ATTR_ATTRIBUTION: ATTRIBUTION,
+            "state": self.is_on,
+            "available": self.available,
+            "device model": self._camera.product_model,
+            "mac": self.unique_id
+        }
+
+    @property
+    def device_class(self):
+        return DEVICE_CLASS_MOTION
+
+    async def async_added_to_hass(self) -> None:
+        await self._camera_service.register_for_updates(self._camera, self.process_update)
+
+    async def async_will_remove_from_hass(self) -> None:
+        await self._camera_service.deregister_for_updates(self._camera)
+
+    @token_exception_handler
+    def process_update(self, camera: Camera) -> None:
         """
-        _LOGGER.debug("""Binary Sensors doing a update.""")
-        self.__sensor = await self.__client.update(self.__sensor)
+        Is called by the update worker for events to update the values in this sensor
+
+        :param camera: An updated version of the current camera
+        """
+        self._camera = camera
+
+        if camera.last_event_ts > self._last_event:
+            self._is_on = True
+            self._last_event = camera.last_event_ts
+        else:
+            self._is_on = False
+            self._last_event = camera.last_event_ts
+
+        self.schedule_update_ha_state()

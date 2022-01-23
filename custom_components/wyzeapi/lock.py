@@ -1,127 +1,175 @@
 #!/usr/bin/python3
 
-"""Platform for binary_sensor integration."""
-import logging
+"""Platform for light integration."""
+from abc import ABC
 from datetime import timedelta
+import logging
+from typing import Any, Callable, List
 
-# Import the device class from the component that you want to support
-from homeassistant.components.lock import LockEntity
+from wyzeapy import LockService, Wyzeapy
+from wyzeapy.services.lock_service import Lock
+from wyzeapy.types import DeviceTypes
+
+import homeassistant.components.lock
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ATTRIBUTION
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from . import DOMAIN
-from .wyzeapi.client import WyzeApiClient
-from .wyzeapi.devices import Lock
-
-# Add to support quicker update time. Is this too Fast?
-SCAN_INTERVAL = timedelta(seconds=5)
-
-ATTRIBUTION = "Data provided by Wyze"
-ATTR_STATE = "state"
-ATTR_AVAILABLE = "available"
-ATTR_DEVICE_MODEL = "device model"
-ATTR_OPEN_CLOSE_STATE = "door"
-
-ATTR_DOOR_STATE_OPEN = "open"
-ATTR_DOOR_STATE_CLOSE = "closed"
+from .const import CONF_CLIENT, DOMAIN, LOCK_UPDATED
+from .token_manager import token_exception_handler
 
 _LOGGER = logging.getLogger(__name__)
+ATTRIBUTION = "Data provided by Wyze"
+SCAN_INTERVAL = timedelta(seconds=10)
+MAX_OUT_OF_SYNC_COUNT = 5
 
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the Wyze binary_sensor platform."""
+@token_exception_handler
+async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry,
+                            async_add_entities: Callable[[List[Any], bool], None]) -> None:
+    """
+    This function sets up the config_entry
 
-    _ = config
-    _ = discovery_info
+    :param hass: Home Assistant instance
+    :param config_entry: The current config_entry
+    :param async_add_entities: This function adds entities to the config_entry
+    :return:
+    """
 
-    wyzeapi_client: WyzeApiClient = hass.data[DOMAIN]["wyzeapi_account"]
+    _LOGGER.debug("""Creating new WyzeApi lock component""")
+    client: Wyzeapy = hass.data[DOMAIN][config_entry.entry_id][CONF_CLIENT]
+    lock_service = await client.lock_service
 
-    _LOGGER.debug("""Creating new WyzeApi Lock component""")
-    locks = await wyzeapi_client.list_locks()
-    async_add_entities([HAWyzeLock(wyzeapi_client, lock, hass) for lock in locks], True)
+    locks = [WyzeLock(lock_service, lock) for lock in await lock_service.get_locks()]
+
+    async_add_entities(locks, True)
 
 
-class HAWyzeLock(LockEntity):
-    """Representation of a Wyze binary_sensor."""
+class WyzeLock(homeassistant.components.lock.LockEntity, ABC):
+    """Representation of a Wyze Lock."""
 
-    def __init__(self, client: WyzeApiClient, lock: Lock, hass):
-        """Initialize a Wyze binary_sensor."""
-        self.__hass = hass
-        self.__lock = lock
-        self.__client = client
+    def __init__(self, lock_service: LockService, lock: Lock):
+        """Initialize a Wyze lock."""
+        self._lock = lock
+        if self._lock.type not in [
+            DeviceTypes.LOCK
+        ]:
+            raise AttributeError("Device type not supported")
+
+        self._lock_service = lock_service
+
+        self._out_of_sync_count = 0
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {
+                (DOMAIN, self._lock.mac)
+            },
+            "name": self.name,
+            "manufacturer": "WyzeLabs",
+            "model": self._lock.product_model
+        }
 
     def lock(self, **kwargs):
-        # FIXME needs to be implemented
-        notification = "Locking and unlocking is not supported in this integration."
-        self.__hass.components.persistent_notification.create(notification, DOMAIN)
-        _LOGGER.debug(notification)
-        pass
+        raise NotImplementedError
 
     def unlock(self, **kwargs):
-        # FIXME needs to be implemented
-        notification = "Locking and unlocking is not supported in this integration."
-        self.__hass.components.persistent_notification.create(notification, DOMAIN)
-        _LOGGER.debug(notification)
-        pass
-
-    def open(self, **kwargs):
-        # Cannot open on this device
-        pass
+        raise NotImplementedError
 
     @property
-    def name(self):
-        """Return the display name of this sensor."""
-        return self.__lock.nick_name
+    def should_poll(self) -> bool:
+        return False
 
-    @property
-    def available(self):
-        """Return the connection status of this sensor"""
-        return self.__lock.available
+    @token_exception_handler
+    async def async_lock(self, **kwargs):
+        _LOGGER.debug("Turning on lock")
+        await self._lock_service.lock(self._lock)
+
+        self._lock.unlocked = False
+        self.async_schedule_update_ha_state()
+
+    @token_exception_handler
+    async def async_unlock(self, **kwargs):
+        await self._lock_service.unlock(self._lock)
+
+        self._lock.unlocked = True
+        self.async_schedule_update_ha_state()
 
     @property
     def is_locked(self):
-        """Return true if sensor is on."""
-        return self.__lock.switch_state == 0
+        return not self._lock.unlocked
+
+    @property
+    def name(self):
+        """Return the display name of this lock."""
+        return self._lock.nickname
 
     @property
     def unique_id(self):
-        return self.__lock.mac
+        return self._lock.mac
 
     @property
-    def device_state_attributes(self):
+    def available(self):
+        """Return the connection status of this lock"""
+        return self._lock.available
+
+    @property
+    def extra_state_attributes(self):
         """Return device attributes of the entity."""
-        return {
+        dev_info = {
             ATTR_ATTRIBUTION: ATTRIBUTION,
-            ATTR_STATE: self.is_locked,
-            ATTR_AVAILABLE: self.available,
-            ATTR_DEVICE_MODEL: self.unique_id,
-            ATTR_OPEN_CLOSE_STATE: self.get_door_state()
+            "state": self.state,
+            "available": self.available,
+            "door_open": self._lock.door_open,
+            "device_model": self._lock.product_model,
+            "mac": self.unique_id
         }
 
-    def get_door_state(self):
-        return ATTR_DOOR_STATE_OPEN if self.__lock.open_close_state == 1 else ATTR_DOOR_STATE_CLOSE
+        # Add the lock battery value if it exists
+        if self._lock.raw_dict.get("power"):
+            dev_info["lock battery"] = str(self._lock.raw_dict.get("power")) + "%"
+
+        # Add the keypad's battery value if it exists
+        if self._lock.raw_dict.get("keypad", {}).get("power"):
+            dev_info["keypad battery"] = str(self._lock.raw_dict.get("keypad", {}).get("power")) + "%"
+
+        return dev_info
 
     @property
-    def should_poll(self):
-        """We always want to poll for sensors."""
-        return True
+    def supported_features(self):
+        return None
 
-    async def async_lock(self, **kwargs):
-        """Lock all or specified locks. A code to lock the lock with may optionally be specified."""
-        # FIXME needs to be implemented
-        notification = "Locking and unlocking is not supported in this integration."
-        self.__hass.components.persistent_notification.create(notification, DOMAIN)
-        _LOGGER.debug(notification)
-
-    async def async_unlock(self, **kwargs):
-        """Unlock all or specified locks. A code to unlock the lock with may optionally be specified."""
-        # FIXME needs to be implemented
-        notification = "Locking and unlocking is not supported in this integration."
-        self.__hass.components.persistent_notification.create(notification, DOMAIN)
-        _LOGGER.debug(notification)
-
+    @token_exception_handler
     async def async_update(self):
-        """Fetch new state data for this sensor.
-        This is the only method that should fetch new data for Home Assistant.
         """
-        _LOGGER.debug("""Binary Locks doing a update.""")
-        self.__lock = await self.__client.update(self.__lock)
+        This function updates the entity
+        """
+        lock = await self._lock_service.update(self._lock)
+        if lock.unlocked == self._lock.unlocked or self._out_of_sync_count >= MAX_OUT_OF_SYNC_COUNT:
+            self._lock = lock
+            self._out_of_sync_count = 0
+        else:
+            self._out_of_sync_count += 1
+
+    @callback
+    def async_update_callback(self, lock: Lock):
+        """Update the switch's state."""
+        self._lock = lock
+        async_dispatcher_send(
+            self.hass,
+            f"{LOCK_UPDATED}-{self._lock.mac}",
+            lock,
+        )
+        self.async_schedule_update_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to update events."""
+        self._lock.callback_function = self.async_update_callback
+        self._lock_service.register_updater(self._lock, 10)
+        await self._lock_service.start_update_manager()
+        return await super().async_added_to_hass()
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._lock_service.unregister_updater()

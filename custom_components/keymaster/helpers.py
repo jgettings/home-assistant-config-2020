@@ -10,22 +10,25 @@ from homeassistant.components.input_boolean import DOMAIN as IN_BOOL_DOMAIN
 from homeassistant.components.input_datetime import DOMAIN as IN_DT_DOMAIN
 from homeassistant.components.input_number import DOMAIN as IN_NUM_DOMAIN
 from homeassistant.components.input_text import DOMAIN as IN_TXT_DOMAIN
-from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
 from homeassistant.components.script import DOMAIN as SCRIPT_DOMAIN
 from homeassistant.components.template import DOMAIN as TEMPLATE_DOMAIN
-from homeassistant.components.zwave.const import DATA_NETWORK
+from homeassistant.components.timer import DOMAIN as TIMER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    ATTR_DEVICE_ID,
     ATTR_ENTITY_ID,
     ATTR_STATE,
     SERVICE_RELOAD,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import Event, HomeAssistant, State
+from homeassistant.core import Event, HomeAssistant, State, callback
 from homeassistant.exceptions import ServiceNotFound
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
-from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from homeassistant.helpers.entity_registry import (
+    EntityRegistry,
+    async_get as async_get_entity_registry,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -36,13 +39,17 @@ from .const import (
     ATTR_ACTION_TEXT,
     ATTR_CODE_SLOT_NAME,
     ATTR_NAME,
+    ATTR_NOTIFICATION_SOURCE,
     CHILD_LOCKS,
     CONF_ALARM_LEVEL_OR_USER_CODE_ENTITY_ID,
     CONF_ALARM_TYPE_OR_ACCESS_CONTROL_ENTITY_ID,
     CONF_LOCK_ENTITY_ID,
     CONF_LOCK_NAME,
+    CONF_PARENT,
     CONF_PATH,
     CONF_SENSOR_NAME,
+    CONF_SLOTS,
+    CONF_START,
     DOMAIN,
     EVENT_KEYMASTER_LOCK_STATE_CHANGED,
     LOCK_STATE_MAP,
@@ -58,14 +65,12 @@ zwave_js_supported = True
 # At that point, we will not need this try except logic and can remove a bunch
 # of code.
 try:
-    from zwave_js_server.const import ATTR_CODE_SLOT
+    from zwave_js_server.const.command_class.lock import ATTR_CODE_SLOT
 
     from homeassistant.components.zwave_js.const import (
-        ATTR_DEVICE_ID,
-        ATTR_LABEL,
+        ATTR_EVENT_LABEL,
         ATTR_NODE_ID,
         ATTR_PARAMETERS,
-        ATTR_TYPE,
         DATA_CLIENT as ZWAVE_JS_DATA_CLIENT,
         DOMAIN as ZWAVE_JS_DOMAIN,
     )
@@ -79,30 +84,64 @@ except (ModuleNotFoundError, ImportError):
 # installed on this Home Assistant instance
 try:
     import openzwavemqtt as ozw_module  # noqa: F401
+
+    from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
 except (ModuleNotFoundError, ImportError):
     ozw_supported = False
 
 try:
     import openzwave as zwave_module  # noqa: F401
+
+    from homeassistant.components.zwave.const import DOMAIN as ZWAVE_DOMAIN
 except (ModuleNotFoundError, ImportError):
     zwave_supported = False
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def using_ozw(hass: HomeAssistant) -> bool:
+@callback
+def _async_using(
+    domain: str,
+    lock: Optional[KeymasterLock],
+    entity_id: Optional[str],
+    ent_reg: Optional[EntityRegistry],
+) -> bool:
+    """Base function for using_<zwave integration> logic."""
+    if not (lock or (entity_id and ent_reg)):
+        raise Exception("Missing arguments")
+
+    if lock:
+        entity = lock.ent_reg.async_get(lock.lock_entity_id)
+    else:
+        entity = ent_reg.async_get(entity_id)
+
+    return entity and entity.platform == domain
+
+
+@callback
+def async_using_ozw(
+    lock: KeymasterLock = None, entity_id: str = None, ent_reg: EntityRegistry = None
+) -> bool:
     """Returns whether the ozw integration is configured."""
-    return ozw_supported and OZW_DOMAIN in hass.data
+    return ozw_supported and _async_using(OZW_DOMAIN, lock, entity_id, ent_reg)
 
 
-def using_zwave(hass: HomeAssistant) -> bool:
+@callback
+def async_using_zwave(
+    lock: KeymasterLock = None, entity_id: str = None, ent_reg: EntityRegistry = None
+) -> bool:
     """Returns whether the zwave integration is configured."""
-    return zwave_supported and DATA_NETWORK in hass.data
+    return zwave_supported and _async_using(ZWAVE_DOMAIN, lock, entity_id, ent_reg)
 
 
-def using_zwave_js(hass: HomeAssistant) -> bool:
+@callback
+def async_using_zwave_js(
+    lock: KeymasterLock = None, entity_id: str = None, ent_reg: EntityRegistry = None
+) -> bool:
     """Returns whether the zwave_js integration is configured."""
-    return zwave_js_supported and ZWAVE_JS_DOMAIN in hass.data
+    return zwave_js_supported and _async_using(
+        ZWAVE_JS_DOMAIN, lock, entity_id, ent_reg
+    )
 
 
 def get_node_id(hass: HomeAssistant, entity_id: str) -> Optional[str]:
@@ -114,16 +153,24 @@ def get_node_id(hass: HomeAssistant, entity_id: str) -> Optional[str]:
     return None
 
 
+def get_code_slots_list(data: Dict[str, int]) -> List[int]:
+    """Get list of code slots."""
+    return list(range(data[CONF_START], data[CONF_START] + data[CONF_SLOTS]))
+
+
 async def generate_keymaster_locks(
     hass: HomeAssistant, config_entry: ConfigEntry
 ) -> Tuple[KeymasterLock, List[KeymasterLock]]:
     """Generate primary and child keymaster locks from config entry."""
+    ent_reg = async_get_entity_registry(hass)
     primary_lock = KeymasterLock(
         config_entry.data[CONF_LOCK_NAME],
         config_entry.data[CONF_LOCK_ENTITY_ID],
         config_entry.data.get(CONF_ALARM_LEVEL_OR_USER_CODE_ENTITY_ID),
         config_entry.data.get(CONF_ALARM_TYPE_OR_ACCESS_CONTROL_ENTITY_ID),
-        config_entry.data[CONF_SENSOR_NAME],
+        ent_reg,
+        door_sensor_entity_id=config_entry.data[CONF_SENSOR_NAME],
+        parent=config_entry.data[CONF_PARENT],
     )
     child_locks = [
         KeymasterLock(
@@ -131,6 +178,7 @@ async def generate_keymaster_locks(
             lock[CONF_LOCK_ENTITY_ID],
             lock.get(CONF_ALARM_LEVEL_OR_USER_CODE_ENTITY_ID),
             lock.get(CONF_ALARM_TYPE_OR_ACCESS_CONTROL_ENTITY_ID),
+            ent_reg,
         )
         for lock_name, lock in config_entry.data.get(CHILD_LOCKS, {}).items()
     ]
@@ -212,10 +260,6 @@ def handle_zwave_js_event(hass: HomeAssistant, config_entry: ConfigEntry, evt: E
         CHILD_LOCKS
     ]
 
-    # If event doesn't match the right type, we shouldn't fire an event
-    if evt.data[ATTR_TYPE] != "notification":
-        return
-
     for lock in [primary_lock, *child_locks]:
         # Try to find the lock that we are getting an event for, skipping
         # ones that don't match
@@ -243,10 +287,11 @@ def handle_zwave_js_event(hass: HomeAssistant, config_entry: ConfigEntry, evt: E
         hass.bus.fire(
             EVENT_KEYMASTER_LOCK_STATE_CHANGED,
             event_data={
+                ATTR_NOTIFICATION_SOURCE: "event",
                 ATTR_NAME: lock.lock_name,
                 ATTR_ENTITY_ID: lock.lock_entity_id,
                 ATTR_STATE: lock_state.state if lock_state else "",
-                ATTR_ACTION_TEXT: evt.data.get(ATTR_LABEL),
+                ATTR_ACTION_TEXT: evt.data.get(ATTR_EVENT_LABEL),
                 ATTR_CODE_SLOT: code_slot or 0,
                 ATTR_CODE_SLOT_NAME: code_slot_name_state.state
                 if code_slot_name_state is not None
@@ -338,6 +383,7 @@ def handle_state_change(
         hass.bus.fire(
             EVENT_KEYMASTER_LOCK_STATE_CHANGED,
             event_data={
+                ATTR_NOTIFICATION_SOURCE: "entity_state",
                 ATTR_NAME: lock.lock_name,
                 ATTR_ENTITY_ID: lock.lock_entity_id,
                 ATTR_STATE: new_state.state,
@@ -381,7 +427,7 @@ async def async_reset_code_slot_if_pin_unknown(
         if pin_state and pin_state.state == STATE_UNKNOWN:
             await hass.services.async_call(
                 "script",
-                f"{lock_name}_reset_codeslot",
+                f"keymaster_{lock_name}_reset_codeslot",
                 {ATTR_CODE_SLOT: x},
                 blocking=True,
             )
@@ -404,6 +450,7 @@ async def async_reload_package_platforms(hass: HomeAssistant) -> bool:
         IN_TXT_DOMAIN,
         SCRIPT_DOMAIN,
         TEMPLATE_DOMAIN,
+        TIMER_DOMAIN,
     ]:
         try:
             await hass.services.async_call(domain, SERVICE_RELOAD, blocking=True)

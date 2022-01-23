@@ -54,3 +54,6 @@ dlib_unknown_faces
 .pc-session
 google*.deb
 .homekit.state
+HAAWYP*
+home-assistant_v2.db*
+wyze_config.ini

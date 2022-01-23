@@ -2,20 +2,23 @@
 import logging
 import os
 import random
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 from homeassistant.components.input_text import MODE_PASSWORD, MODE_TEXT
 from homeassistant.components.lock import DOMAIN as LOCK_DOMAIN
-from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
 from homeassistant.components.persistent_notification import create
+from homeassistant.components.script import DOMAIN as SCRIPT_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
+from homeassistant.util import slugify
 
 from .const import (
     ATTR_CODE_SLOT,
     ATTR_NODE_ID,
     ATTR_USER_CODE,
     CONF_HIDE_PINS,
+    CONF_LOCK_ENTITY_ID,
     CONF_PATH,
     CONF_SLOTS,
     CONF_START,
@@ -26,13 +29,14 @@ from .const import (
 )
 from .exceptions import ZWaveIntegrationNotConfiguredError
 from .helpers import (
+    async_using_ozw,
+    async_using_zwave,
+    async_using_zwave_js,
+    get_code_slots_list,
     get_node_id,
     output_to_file_from_template,
     reload_package_platforms,
     reset_code_slot_if_pin_unknown,
-    using_ozw,
-    using_zwave,
-    using_zwave_js,
 )
 from .lock import KeymasterLock
 
@@ -40,7 +44,10 @@ from .lock import KeymasterLock
 # At that point, we will not need this try except logic and can remove a bunch
 # of code.
 try:
+    from zwave_js_server.util.lock import get_usercode_from_node
+
     from homeassistant.components.zwave_js.const import DOMAIN as ZWAVE_JS_DOMAIN
+    from homeassistant.components.zwave_js.helpers import async_get_node_from_entity_id
     from homeassistant.components.zwave_js.lock import (
         SERVICE_CLEAR_LOCK_USERCODE,
         SERVICE_SET_LOCK_USERCODE,
@@ -50,6 +57,8 @@ except (ModuleNotFoundError, ImportError):
 
 try:
     from openzwavemqtt.const import CommandClass
+
+    from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
 except (ModuleNotFoundError, ImportError):
     pass
 
@@ -57,6 +66,19 @@ _LOGGER = logging.getLogger(__name__)
 
 SET_USERCODE = "set_usercode"
 CLEAR_USERCODE = "clear_usercode"
+
+
+async def init_child_locks(
+    hass: HomeAssistant, start: int, slots: int, lockname: str
+) -> None:
+    """Populates child locks values with parent values"""
+    # LOCKNAME_copy_from_parent_TEMPLATENUM
+    _LOGGER.debug("Syncing lock: %s", lockname)
+    for x in range(start, start + slots):
+        the_service = f"{lockname}_copy_from_parent_{x}"
+        _LOGGER.debug("Attempting to call script: %s", the_service)
+        await call_service(hass, SCRIPT_DOMAIN, the_service)
+    _LOGGER.debug("Sync complete")
 
 
 async def call_service(
@@ -76,16 +98,34 @@ async def refresh_codes(
     hass: HomeAssistant, entity_id: str, instance_id: int = 1
 ) -> None:
     """Refresh lock codes."""
-    node_id = get_node_id(hass, entity_id)
-    if node_id is None:
-        _LOGGER.error(
-            "Problem retrieving node_id from entity %s",
-            entity_id,
+    try:
+        config_entry = next(
+            config_entry
+            for config_entry in hass.config_entries.async_entries(DOMAIN)
+            if config_entry.data[CONF_LOCK_ENTITY_ID] == entity_id
         )
+    except StopIteration:
+        _LOGGER.error("Entity ID %s not set up in keymaster", entity_id)
+        return
+
+    ent_reg = async_get_entity_registry(hass)
+    if async_using_zwave_js(entity_id=entity_id, ent_reg=ent_reg):
+        code_slots = get_code_slots_list(config_entry.data)
+        node = async_get_node_from_entity_id(hass, entity_id, ent_reg=ent_reg)
+        for code_slot in code_slots:
+            await get_usercode_from_node(node, code_slot)
         return
 
     # OZW Button press (experimental)
-    if using_ozw(hass):
+    if async_using_ozw(entity_id=entity_id, ent_reg=ent_reg):
+        node_id = get_node_id(hass, entity_id)
+        if node_id is None:
+            _LOGGER.error(
+                "Problem retrieving node_id from entity %s",
+                entity_id,
+            )
+            return
+
         manager = hass.data[OZW_DOMAIN][MANAGER]
         lock_values = manager.get_instance(instance_id).get_node(node_id).values()
         for value in lock_values:
@@ -108,17 +148,21 @@ async def add_code(
         ATTR_USER_CODE: usercode,
     }
 
-    if using_zwave_js(hass):
+    if async_using_zwave_js(
+        entity_id=entity_id, ent_reg=async_get_entity_registry(hass)
+    ):
         servicedata[ATTR_ENTITY_ID] = entity_id
         await call_service(
             hass, ZWAVE_JS_DOMAIN, SERVICE_SET_LOCK_USERCODE, servicedata
         )
 
-    elif using_ozw(hass):
+    elif async_using_ozw(entity_id=entity_id, ent_reg=async_get_entity_registry(hass)):
         servicedata[ATTR_ENTITY_ID] = entity_id
         await call_service(hass, OZW_DOMAIN, SET_USERCODE, servicedata)
 
-    elif using_zwave(hass):
+    elif async_using_zwave(
+        entity_id=entity_id, ent_reg=async_get_entity_registry(hass)
+    ):
         node_id = get_node_id(hass, entity_id)
         if node_id is None:
             _LOGGER.error(
@@ -138,7 +182,9 @@ async def clear_code(hass: HomeAssistant, entity_id: str, code_slot: int) -> Non
     """Clear the usercode from a code slot."""
     _LOGGER.debug("Attempting to call clear_usercode...")
 
-    if using_zwave_js(hass):
+    if async_using_zwave_js(
+        entity_id=entity_id, ent_reg=async_get_entity_registry(hass)
+    ):
         servicedata = {
             ATTR_ENTITY_ID: entity_id,
             ATTR_CODE_SLOT: code_slot,
@@ -147,7 +193,7 @@ async def clear_code(hass: HomeAssistant, entity_id: str, code_slot: int) -> Non
             hass, ZWAVE_JS_DOMAIN, SERVICE_CLEAR_LOCK_USERCODE, servicedata
         )
 
-    elif using_ozw(hass):
+    elif async_using_ozw(entity_id=entity_id, ent_reg=async_get_entity_registry(hass)):
         # Call dummy slot first as a workaround
         for curr_code_slot in (999, code_slot):
             servicedata = {
@@ -156,7 +202,9 @@ async def clear_code(hass: HomeAssistant, entity_id: str, code_slot: int) -> Non
             }
             await call_service(hass, OZW_DOMAIN, CLEAR_USERCODE, servicedata)
 
-    elif using_zwave(hass):
+    elif async_using_zwave(
+        entity_id=entity_id, ent_reg=async_get_entity_registry(hass)
+    ):
         node_id = get_node_id(hass, entity_id)
         if node_id is None:
             _LOGGER.error(
@@ -192,7 +240,8 @@ def generate_package_files(hass: HomeAssistant, name: str) -> None:
         (
             hass.config_entries.async_get_entry(entry_id)
             for entry_id in hass.data[DOMAIN]
-            if hass.data[DOMAIN][entry_id][PRIMARY_LOCK].lock_name == name
+            if isinstance(hass.data[DOMAIN][entry_id], Mapping)
+            and hass.data[DOMAIN][entry_id][PRIMARY_LOCK].lock_name == name
         ),
         None,
     )
@@ -200,7 +249,13 @@ def generate_package_files(hass: HomeAssistant, name: str) -> None:
         raise ValueError(f"Couldn't find existing lock entry for {name}")
 
     primary_lock: KeymasterLock = hass.data[DOMAIN][config_entry.entry_id][PRIMARY_LOCK]
-    lockname = primary_lock.lock_name
+
+    # Append _child to child lock yaml files
+    child_file = ""
+    if primary_lock.parent is not None:
+        child_file = "_child"
+
+    lockname = slugify(primary_lock.lock_name)
 
     _LOGGER.debug("Starting file generation...")
 
@@ -287,11 +342,17 @@ def generate_package_files(hass: HomeAssistant, name: str) -> None:
         "SENSORALARMTYPE": sensoralarmtype,
         "SENSORALARMLEVEL": sensoralarmlevel,
         "HIDE_PINS": hide_pins,
+        "PARENTLOCK": "" if primary_lock.parent is None else primary_lock.parent,
     }
+
     # Replace variables in common file
     for in_f, out_f, write_mode in (
-        ("keymaster_common.yaml", f"{lockname}_keymaster_common.yaml", "w+"),
-        ("lovelace.head", f"{lockname}_lovelace", "w+"),
+        (
+            f"keymaster_common{child_file}.yaml",
+            f"{lockname}_keymaster_common.yaml",
+            "w+",
+        ),
+        (f"lovelace{child_file}.head", f"{lockname}_lovelace", "w+"),
     ):
         output_to_file_from_template(
             input_path, in_f, output_path, out_f, replacements, write_mode
@@ -303,8 +364,8 @@ def generate_package_files(hass: HomeAssistant, name: str) -> None:
         replacements["TEMPLATENUM"] = str(x)
 
         for in_f, out_f, write_mode in (
-            ("keymaster.yaml", f"{lockname}_keymaster_{x}.yaml", "w+"),
-            ("lovelace.code", f"{lockname}_lovelace", "a"),
+            (f"keymaster{child_file}.yaml", f"{lockname}_keymaster_{x}.yaml", "w+"),
+            (f"lovelace{child_file}.code", f"{lockname}_lovelace", "a"),
         ):
             output_to_file_from_template(
                 input_path, in_f, output_path, out_f, replacements, write_mode
@@ -323,6 +384,8 @@ def generate_package_files(hass: HomeAssistant, name: str) -> None:
             "Package generation complete and all changes have been hot reloaded"
         )
         reset_code_slot_if_pin_unknown(hass, lockname, code_slots, start_from)
+        if primary_lock.parent is not None:
+            init_child_locks(hass, start_from, code_slots, lockname)
     else:
         create(
             hass,

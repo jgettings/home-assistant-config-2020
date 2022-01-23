@@ -5,8 +5,9 @@ https://blog.kalavala.net/usps/homeassistant/mqtt/2018/01/12/usps.html
 Configuration code contribution from @firstof9 https://github.com/firstof9/
 """
 import logging
-from typing import Any, Optional
+from typing import Optional
 
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import CONF_HOST, CONF_RESOURCES
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -16,6 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the sensor entities."""
     coordinator = hass.data[const.DOMAIN][entry.entry_id][const.COORDINATOR]
     unique_id = entry.entry_id
     sensors = []
@@ -30,16 +32,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(sensors, False)
 
 
-class PackagesSensor(CoordinatorEntity):
-    """ Represntation of a sensor """
+class PackagesSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a sensor."""
 
     def __init__(self, config, sensor_type, coordinator, unique_id):
-        """ Initialize the sensor """
+        """Initialize the sensor"""
+        super().__init__(coordinator)
         self.coordinator = coordinator
         self._config = config
         self._name = const.SENSOR_TYPES[sensor_type][const.SENSOR_NAME]
         self._icon = const.SENSOR_TYPES[sensor_type][const.SENSOR_ICON]
-        self._unit_of_measurement = const.SENSOR_TYPES[sensor_type][const.SENSOR_UNIT]
+        self._attr_native_unit_of_measurement = const.SENSOR_TYPES[sensor_type][
+            const.SENSOR_UNIT
+        ]
         self.type = sensor_type
         self._host = config.data[CONF_HOST]
         self._unique_id = unique_id
@@ -56,17 +61,15 @@ class PackagesSensor(CoordinatorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[int]:
+    def native_value(self) -> Optional[int]:
         """Return the state of the sensor."""
-        if self.type in self.coordinator.data.keys():
-            return self.coordinator.data[self.type]
-        else:
-            return None
+        value = None
 
-    @property
-    def unit_of_measurement(self) -> Optional[str]:
-        """Return the unit of measurement of this entity, if any."""
-        return self._unit_of_measurement
+        if self.type in self.coordinator.data.keys():
+            value = self.coordinator.data[self.type]
+        else:
+            value = None
+        return value
 
     @property
     def icon(self) -> str:
@@ -91,39 +94,36 @@ class PackagesSensor(CoordinatorEntity):
         tracking = f"{self.type.split('_')[0]}_tracking"
         data = self.coordinator.data
 
+        # Catch no data entries
+        if self.data is None:
+            return attr
+
         if "Amazon" in self._name:
-            attr[const.ATTR_ORDER] = data[const.AMAZON_ORDER]
-        elif "Mail USPS Mail" == self._name:
+            if self._name == "amazon_exception":
+                attr[const.ATTR_ORDER] = data[const.AMAZON_EXCEPTION_ORDER]
+            else:
+                attr[const.ATTR_ORDER] = data[const.AMAZON_ORDER]
+        elif self._name == "Mail USPS Mail":
             attr[const.ATTR_IMAGE] = data[const.ATTR_IMAGE_NAME]
         elif "_delivering" in self.type and tracking in self.data.keys():
             attr[const.ATTR_TRACKING_NUM] = data[tracking]
         return attr
 
-    async def async_update(self):
-        """Update the entity.
 
-        Only used by the generic entity update service.
-        """
-        await self.coordinator.async_request_refresh()
-
-    async def async_added_to_hass(self):
-        """When entity is added to hass."""
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
-
-
-class ImagePathSensors(CoordinatorEntity):
-    """ Represntation of a sensor """
+class ImagePathSensors(CoordinatorEntity, SensorEntity):
+    """Representation of a sensor."""
 
     def __init__(self, hass, config, sensor_type, coordinator, unique_id):
-        """ Initialize the sensor """
+        """Initialize the sensor"""
+        super().__init__(coordinator)
         self.hass = hass
         self.coordinator = coordinator
         self._config = config
         self._name = const.IMAGE_SENSORS[sensor_type][const.SENSOR_NAME]
         self._icon = const.IMAGE_SENSORS[sensor_type][const.SENSOR_ICON]
-        self._unit_of_measurement = const.IMAGE_SENSORS[sensor_type][const.SENSOR_UNIT]
+        self._attr_native_unit_of_measurement = const.IMAGE_SENSORS[sensor_type][
+            const.SENSOR_UNIT
+        ]
         self.type = sensor_type
         self._host = config.data[CONF_HOST]
         self._unique_id = unique_id
@@ -139,9 +139,10 @@ class ImagePathSensors(CoordinatorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[str]:
         """Return the state of the sensor."""
         image = self.coordinator.data[const.ATTR_IMAGE_NAME]
+        the_path = None
 
         if const.ATTR_IMAGE_PATH in self.coordinator.data.keys():
             path = self.coordinator.data[const.ATTR_IMAGE_PATH]
@@ -150,26 +151,21 @@ class ImagePathSensors(CoordinatorEntity):
 
         if self.type == "usps_mail_image_system_path":
             _LOGGER.debug("Updating system image path to: %s", path)
-            return f"{self.hass.config.path()}/{path}{image}"
+            the_path = f"{self.hass.config.path()}/{path}{image}"
         elif self.type == "usps_mail_image_url":
             if (
                 self.hass.config.external_url is None
                 and self.hass.config.internal_url is None
             ):
-                return None
+                the_path = None
             elif self.hass.config.external_url is None:
-                _LOGGER.warn("External URL not set in configuration.")
+                _LOGGER.warning("External URL not set in configuration.")
                 url = self.hass.config.internal_url
-                return f"{url.rstrip('/')}/local/mail_and_packages/{image}"
-            url = self.hass.config.external_url
-            return f"{url.rstrip('/')}/local/mail_and_packages/{image}"
-        else:
-            return None
-
-    @property
-    def unit_of_measurement(self) -> Optional[str]:
-        """Return the unit of measurement of this entity, if any."""
-        return self._unit_of_measurement
+                the_path = f"{url.rstrip('/')}/local/mail_and_packages/{image}"
+            else:
+                url = self.hass.config.external_url
+                the_path = f"{url.rstrip('/')}/local/mail_and_packages/{image}"
+        return the_path
 
     @property
     def icon(self) -> str:
@@ -191,16 +187,3 @@ class ImagePathSensors(CoordinatorEntity):
         """Return device specific state attributes."""
         attr = {}
         return attr
-
-    async def async_update(self):
-        """Update the entity.
-
-        Only used by the generic entity update service.
-        """
-        await self.coordinator.async_request_refresh()
-
-    async def async_added_to_hass(self):
-        """When entity is added to hass."""
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
