@@ -208,8 +208,28 @@
   description: ''
   trigger:
   - platform: time
-    at: '9:00'
-  condition: []
+    at: 09:00:00
+  condition:
+  - condition: or
+    conditions:
+    - condition: numeric_state
+      entity_id: sensor.mail_fedex_delivered
+      above: '0'
+    - condition: numeric_state
+      entity_id: sensor.mail_fedex_delivering
+      above: '0'
+    - condition: numeric_state
+      entity_id: sensor.mail_usps_delivered
+      above: '0'
+    - condition: numeric_state
+      entity_id: sensor.mail_usps_delivering
+      above: '0'
+    - condition: numeric_state
+      entity_id: sensor.mail_ups_delivered
+      above: '0'
+    - condition: numeric_state
+      entity_id: sensor.mail_ups_delivering
+      above: '0'
   action:
   - service: notify.slack_bot
     data:
