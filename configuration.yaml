@@ -11,16 +11,6 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 amcrest: !include cameras.yaml
-
-# lovelace:
-#   mode: yaml
-
-wyzeapi:
-  username: !secret wyze_username
-  password: !secret wyze_password
-  lock: false
-  switch: false
-  
   
 climate:
   - platform: radiotherm
@@ -47,3 +37,14 @@ zwave:
   network_key: !secret zwave_key
 homeassistant:
   packages: !include_dir_named packages
+  whitelist_external_dirs:
+    - /share
+    - /share/cameras
+
+notify:
+  - name: slack_bot
+    platform: slack
+    api_key: !secret slack_api_key
+    default_channel: !secret slack_channel
+    username: house
+    icon: house

@@ -1,188 +1,121 @@
-- id: '1605575095180'
+- id: '1638071396796'
   name: Evening Default
   entities:
+    switch.kitchen:
+      friendly_name: 'Kitchen'
+      state: 'on'
     light.living_room_lamp_1:
-      min_mireds: 153
-      max_mireds: 500
-      brightness: 101.06060606060606
-      color_temp: 500
+      min_mireds: 154
+      max_mireds: 370
+      supported_color_modes:
+      - color_temp
+      color_mode: color_temp
+      brightness: 109.6
+      color_temp: 370
+      hs_color:
+      - 28.391
+      - 65.659
+      rgb_color:
+      - 255
+      - 166
+      - 87
+      xy_color:
+      - 0.526
+      - 0.387
       attribution: Data provided by Wyze
       state: 'on'
-      available: 1
+      available: true
       device model: WLPA19
-      ssid: !secret ssid
-      ip: !secret wyze_living_room_light_1_ip
-      rssi: '-60'
       mac: 2CAA8E5AAFE4
-      friendly_name: Living Room Lamp 1
+      IP: !secret wyze_living_room_light_1_ip
+      RSSI: '-64'
+      SSID: !secret ssid
+      friendly_name: living room 1
       supported_features: 3
-    switch.kitchen:
-      friendly_name: Kitchen
+    switch.mantle:
+      friendly_name: Mantle
       state: 'on'
-  icon: mdi:sofa-outline
-- id: '1610923251823'
+  icon: mdi:sofa
+- id: '1638071474600'
   name: Bedtime
   entities:
-    light.side_door_inside_light:
-      min_mireds: 153
-      max_mireds: 500
-      brightness: 49.74747474747475
-      color_temp: 500
-      attribution: Data provided by Wyze
-      state: 'on'
-      available: 1
-      device model: WLPA19
-      ssid: !secret ssid
-      ip: !secret wyze_side_door_light_ip
-      rssi: '-65'
-      mac: 2CAA8E5BFB64
-      friendly_name: Side Door Inside Light
-      supported_features: 3
-    light.kitchen_light:
-      friendly_name: Kitchen Light
-      supported_features: 0
+    switch.kitchen:
+      friendly_name: 'Kitchen'
       state: 'off'
     light.living_room_lamp_1:
-      min_mireds: 153
-      max_mireds: 500
+      min_mireds: 154
+      max_mireds: 370
+      supported_color_modes:
+      - color_temp
       attribution: Data provided by Wyze
       state: 'off'
-      available: 1
+      available: true
       device model: WLPA19
-      ssid: !secret ssid
-      ip: !secret wyze_living_room_light_1_ip
-      rssi: '-68'
       mac: 2CAA8E5AAFE4
-      friendly_name: Living Room Lamp 1
+      IP: !secret wyze_living_room_light_1_ip
+      RSSI: '-64'
+      SSID: !secret ssid
+      friendly_name: living room 1
       supported_features: 3
-    light.office_light:
-      min_mireds: 153
-      max_mireds: 500
-      attribution: Data provided by Wyze
+    switch.mantle:
+      friendly_name: Mantle
       state: 'off'
-      available: 1
-      device model: WLPA19
-      ssid: !secret ssid
-      ip: !secret wyze_office_light
-      rssi: '-60'
-      mac: 2CAA8E5E9C7C
-      friendly_name: office light
-      supported_features: 3
-    zwave.side_door_lock:
-      node_id: 5
-      node_name: Schlage (Allegion) BE469 Touchscreen Deadbolt
-      manufacturer_name: Schlage (Allegion)
-      product_name: BE469 Touchscreen Deadbolt
-      query_stage: Complete
-      is_awake: true
-      is_ready: true
-      is_failed: false
-      is_info_received: true
-      max_baud_rate: 40000
-      is_zwave_plus: false
-      capabilities:
-      - beaming
-      - routing
-      - frequent
-      neighbors:
-      - 1
-      sentCnt: 17
-      sentFailed: 0
-      retries: 0
-      receivedCnt: 13
-      receivedDups: 0
-      receivedUnsolicited: 0
-      sentTS: '2021-03-13 12:23:39:426 '
-      receivedTS: '2021-03-13 12:23:40:937 '
-      lastRequestRTT: 1451
-      averageRequestRTT: 1421
-      lastResponseRTT: 1510
-      averageResponseRTT: 1726
-      battery_level: 100
-      application_version: '128.22'
-      friendly_name: Side Door Lock
-      state: ready
-    lock.side_door_lock_locked:
-      node_id: 5
-      value_index: 0
-      value_instance: 1
-      value_id: '72057594127613952'
-      notification: RF Lock
-      lock_status: Locked by RF
-      friendly_name: Side Door Lock Locked
-      state: locked
   icon: mdi:bed
-- id: '1610923539819'
-  name: Kids
-  entities:
-    switch.attic_heater:
-      restored: true
-      supported_features: 0
-      friendly_name: Attic Heater
-      state: unavailable
-    climate.dining_room:
-      hvac_modes:
-      - auto
-      - cool
-      - heat
-      - 'off'
-      min_temp: 44.5
-      max_temp: 95
-      fan_modes:
-      - 'on'
-      - auto
-      preset_modes:
-      - home
-      - alternate
-      - away
-      - holiday
-      current_temperature: 69
-      temperature: 69
-      fan_mode: auto
-      hvac_action: idle
-      preset_mode:
-      fan_action: 'off'
-      friendly_name: Dining Room
-      supported_features: 25
-      state: heat
-  icon: mdi:account-group
-- id: '1610923772837'
-  name: Leaving Home
-  entities:
-    light.all_lights:
-      min_mireds: 153
-      max_mireds: 500
-      brightness: 103.62626262626263
-      color_temp: 500
-      entity_id:
-      - light.side_door_inside_light
-      - light.office_light
-      - light.living_room_lamp_1
-      - light.kitchen_light
-      friendly_name: All Lights
-      icon: mdi:lightbulb-group
-      supported_features: 3
-      state: 'on'
-  icon: mdi:exit-run
-- id: '1612121896472'
+- id: '1638107074092'
   name: Morning
   entities:
-    light.kitchen_light:
-      friendly_name: Kitchen Light
-      supported_features: 0
+    switch.kitchen:
+      friendly_name: ' Kitchen'
       state: 'on'
-    light.side_door_inside_light:
-      min_mireds: 153
-      max_mireds: 500
-      brightness: 255
+  icon: mdi:coffee
+- id: '1638308628202'
+  name: At Work
+  entities:
+    light.office_light:
+      min_mireds: 154
+      max_mireds: 370
+      supported_color_modes:
+      - color_temp
+      color_mode: color_temp
+      brightness: 58.6
+      color_temp: 254
+      hs_color:
+      - 26.843
+      - 36.023
+      rgb_color:
+      - 255
+      - 204
+      - 163
+      xy_color:
+      - 0.424
+      - 0.366
       attribution: Data provided by Wyze
       state: 'on'
-      available: 1
+      available: true
       device model: WLPA19
-      ssid: !secret ssid
-      ip: !secret wyze_side_door_light_ip
-      rssi: '-70'
-      mac: 2CAA8E5BFB64
-      friendly_name: Side Door Inside Light
+      mac: 2CAA8E5E9C7C
+      IP: !secret wyze_office_light
+      RSSI: '-67'
+      SSID: !secret ssid
+      friendly_name: parlor
       supported_features: 3
-  icon: mdi:coffee
+  icon: mdi:desk
+- id: '1638308670524'
+  name: Not at Work
+  entities:
+    light.office_light:
+      min_mireds: 154
+      max_mireds: 370
+      supported_color_modes:
+      - color_temp
+      attribution: Data provided by Wyze
+      state: 'off'
+      available: true
+      device model: WLPA19
+      mac: 2CAA8E5E9C7C
+      IP: !secret wyze_office_light
+      RSSI: '-67'
+      SSID: !secret ssid
+      friendly_name: parlor
+      supported_features: 3
+  icon: mdi:weather-sunny

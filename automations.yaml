@@ -4,22 +4,14 @@
   trigger:
   - platform: sun
     event: sunset
-    offset: -00:35:00
-  condition:
-  - condition: or
-    conditions:
-    - condition: zone
-      entity_id: person.jen
-      zone: zone.home
-    - condition: zone
-      entity_id: person.jared
-      zone: zone.home
+    offset: -00:55:00
+  condition: []
   action:
   - scene: scene.evening_default
   mode: single
   max: 10
 - id: '1605653736019'
-  alias: Notify Jen on front porch motion
+  alias: Notify on Front Porch Motion
   description: Motion detected on front porch
   trigger:
   - platform: state
@@ -28,12 +20,31 @@
     to: 'on'
   condition: []
   action:
-  - service: notify.mobile_app_jen_s_phone
+  - service: camera.snapshot
+    target:
+      entity_id: camera.front_porch_cam
     data:
-      title: Motion detected on front porch
-      message: check it out
+      filename: /share/cameras/front_porch_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
+  - service: notify.slack_bot
+    data:
+      message: Motion detected on Front Porch
+      title: Security Warning
       data:
-        clickAction: /lovelace/security
+        username: Security Warning
+        icon: guardsman
+        blocks:
+        - type: section
+          block_id: section567
+          text:
+            type: mrkdwn
+            text: <http://homeassistant.local:8123/lovelace/security|Security Dashboard>
+  - service: notify.slack_bot
+    data:
+      message: Motion detected on Front Porch
+      title: Security Warning
+      data:
+        file:
+          path: /share/cameras/front_porch_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
   mode: queued
   max: 10
 - id: '1605756985220'
@@ -61,8 +72,8 @@
   description: lights off, etc
   trigger:
   - platform: state
-    entity_id: binary_sensor.moto_x4_is_charging
     to: 'on'
+    entity_id: binary_sensor.sm_g986u1_is_charging
   condition:
   - condition: time
     after: '21:00'
@@ -70,17 +81,17 @@
   - scene: scene.bedtime
   mode: single
 - id: '1612537386339'
-  alias: Trigger Morning Scene at 8am
+  alias: Trigger Morning Scene at 7:30am
   description: ''
   trigger:
   - platform: time
-    at: 08:00
+    at: 07:00:00
   condition: []
   action:
   - scene: scene.morning
   mode: single
 - id: '1613598163981'
-  alias: Notify Jen on Driveway Motion
+  alias: Notify on Driveway Motion
   description: ''
   trigger:
   - platform: state
@@ -88,10 +99,169 @@
     to: 'on'
   condition: []
   action:
-  - service: notify.mobile_app_jen_s_phone
+  - service: camera.snapshot
+    target:
+      entity_id: camera.driveway_cam
     data:
-      title: Motion detected in driveway
-      message: check it out
+      filename: /share/cameras/driveway_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
+  - service: notify.slack_bot
+    data:
+      message: Motion detected in Driveway
+      title: Security Warning
       data:
-        clickAction: /lovelace/security
+        username: Security Warning
+        icon: guardsman
+        blocks:
+        - type: section
+          block_id: section567
+          text:
+            type: mrkdwn
+            text: <http://homeassistant.local:8123/lovelace/security|Security Dashboard>
+  - service: notify.slack_bot
+    data:
+      message: Motion detected in Driveway
+      title: Security Warning
+      data:
+        file:
+          path: /share/cameras/driveway_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
+  mode: single
+- id: '1622861597507'
+  alias: Notify on Back Yard Motion
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.back_yard_cam_motion_detected
+    from: 'off'
+    to: 'on'
+  condition: []
+  action:
+  - service: camera.snapshot
+    data:
+      filename: /share/cameras/back_yard_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
+    target:
+      entity_id: camera.back_yard_cam
+  - service: notify.slack_bot
+    data:
+      message: Motion detected in Back Yard
+      title: Security Warning
+      data:
+        username: Security Warning
+        icon: guardsman
+        blocks:
+        - type: section
+          block_id: section567
+          text:
+            type: mrkdwn
+            text: <http://homeassistant.local:8123/lovelace/security|Security Dashboard>
+  - service: notify.slack_bot
+    data:
+      message: Motion detected in Back Yard
+      title: Security Warning
+      data:
+        file:
+          path: /share/cameras/back_yard_{{ now().strftime("%Y%m%d-%H%M") }}.jpg
+  mode: single
+- id: '1623011890451'
+  alias: Bedtime Timer
+  description: For vacations
+  trigger:
+  - platform: time
+    at: 0:00
+  condition: []
+  action:
+  - scene: scene.bedtime
+  mode: single
+- id: '1626315180978'
+  alias: Notify on Package Delivery
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: sensor.mail_fedex_delivered
+    from: '0'
+  - platform: state
+    entity_id: sensor.mail_usps_delivered
+    from: '0'
+  - platform: state
+    entity_id: sensor.mail_ups_delivered
+    from: '0'
+  condition: []
+  action:
+  - service: notify.slack_bot
+    data:
+      message: Package Delivered
+  mode: single
+- id: '1626315967748'
+  alias: Notify on Update Available
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.updater
+    from: 'off'
+  condition: []
+  action:
+  - service: notify.slack_bot
+    data:
+      message: Home Assistant Update Available
+  mode: single
+- id: '1626399273502'
+  alias: 'Digest: Packages Expected Today'
+  description: ''
+  trigger:
+  - platform: time
+    at: '9:00'
+  condition: []
+  action:
+  - service: notify.slack_bot
+    data:
+      title: Packages Today
+      message: '''We are expecting the following packages today'
+      data:
+        blocks:
+        - type: section
+          text:
+            type: mrkdwn
+            text: 'We are expecting the following packages todaay
+
+              - Fedex delivered: {{ states(''sensor.mail_fedex_delivered'') }}
+
+              - Fedex delivering: {{ states(''sensor.mail_fedex_delivering'') }}
+
+              - UPS delivered: {{ states(''sensor.mail_ups_delivered'') }}
+
+              - UPS delivering: {{ states(''sensor.mail_ups_delivering'') }}
+
+              - USPS delivered: {{ states(''sensor.mail_usps_delivered'') }}
+
+              - USPS delivering: {{ states(''sensor.mail_usps_delivering'') }}
+
+              '
+  mode: single
+- id: '1638308717764'
+  alias: Start Work
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.jennifers_macbook_pro_active
+    from: 'off'
+    to: 'on'
+  condition: []
+  action:
+  - scene: scene.at_work
+  mode: single
+- id: '1638308760785'
+  alias: End Work
+  description: ''
+  trigger:
+  - platform: state
+    entity_id: binary_sensor.jennifers_macbook_pro_active
+    from: 'on'
+    to: 'off'
+    for:
+      hours: 0
+      minutes: 15
+      seconds: 0
+      milliseconds: 0
+  condition: []
+  action:
+  - scene: scene.not_at_work
   mode: single
